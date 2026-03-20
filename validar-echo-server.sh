@@ -8,12 +8,14 @@ RESPONSE=$(docker run --rm --network=container:server alpine sh -c "
   echo '$MSG' | nc -w 2 localhost 12345
 " 2>/dev/null || true)
 
-if [ -z "$RESPONSE" ]; then
+RESPONSE_CLEAN=$(printf "%s" "$RESPONSE" | tr -d '\r\n')
+
+if [ -z "$RESPONSE_CLEAN" ]; then
   echo "action: test_echo_server | result: fail"
   exit 0
 fi
 
-if echo "$RESPONSE" | grep -q "$MSG"; then
+if [ "$RESPONSE_CLEAN" = "$MSG" ]; then
   echo "action: test_echo_server | result: success"
 else
   echo "action: test_echo_server | result: fail"
