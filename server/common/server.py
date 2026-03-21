@@ -19,16 +19,16 @@ class Server:
         if self._server_socket:
             try:
                 self._server_socket.close()
-                logging.info('action: close_fd | target: server_socket | result: success')
+                logging.info('action: close_fd | result: success | target: server_socket')
             except OSError as e:
-                logging.error(f'action: close_fd | target: server_socket | result: fail | error: {e}')
+                logging.error(f'action: close_fd | result: fail | target: server_socket | error: {e}')
 
         for client_socket in self.client_sockets:
             try:
                 client_socket.close()
-                logging.info('action: close_fd | target: client_socket | result: success')
+                logging.info('action: close_fd | result: success | target: client_socket')
             except OSError as e:
-                logging.error(f'action: close_fd | target: client_socket | result: fail | error: {e}')
+                logging.error(f'action: close_fd | result: fail | target: client_socket | error: {e}')
 
         logging.info('action: shutdown | result: success')
 
@@ -74,8 +74,12 @@ class Server:
         except OSError as e:
             logging.error("action: receive_message | result: fail | error: {e}")
         finally:
-            client_sock.close()
-            logging.info('action: close_fd | target: client_socket | result: success')
+            try:
+                client_sock.close()
+                logging.info('action: close_fd | result: success | target: client_socket')
+            except OSError as e:
+                logging.error(f'action: close_fd | result: fail | target: client_socket | error: {e}')
+
             try:
                 self.client_sockets.remove(client_sock)
             except ValueError:
