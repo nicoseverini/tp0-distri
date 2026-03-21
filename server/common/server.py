@@ -1,7 +1,7 @@
 import socket
 import logging
-from server.common.utils import store_bets, Bet
-from server.common.protocol_transfer import read_bet, send_ack, ProtocolError
+from common.utils import store_bets
+from common.protocol_transfer import read_bet, send_ack, ProtocolError
 
 class Server:
     def __init__(self, port, listen_backlog):
