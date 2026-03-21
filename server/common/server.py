@@ -1,7 +1,7 @@
 import socket
 import logging
 from common.utils import store_bets
-from common.protocol_transfer import read_bet, send_ack, ProtocolError
+from common.protocol_transfer import read_bet, send_ack, ProtocolError, ClientDisconnected
 
 class Server:
     def __init__(self, port, listen_backlog):
@@ -74,6 +74,10 @@ class Server:
                 bet.number
             )
             send_ack(client_sock)
+        except ClientDisconnected:
+            logging.info(
+                "action: handle_client | result: success | event: client_disconnected"
+            )
         except (ProtocolError, OSError, ValueError) as e:
             logging.error(
                 "action: handle_client | result: fail | error: %s",

@@ -4,13 +4,20 @@ from common.utils import Bet
 class ProtocolError(Exception):
     pass
 
+
+class ClientDisconnected(Exception):
+    """Raised when a client closes the socket before sending any data."""
+    pass
+
 def recv_line(sock: socket.socket) -> str:
     data = b''
 
     while b'\n' not in data:
         chunk = sock.recv(1024)
         if not chunk:
-            raise OSError("socket closed")
+            if not data:
+                raise ClientDisconnected("client closed connection before sending data")
+            raise ProtocolError("incomplete bet format")
         data += chunk
 
     return data.decode()

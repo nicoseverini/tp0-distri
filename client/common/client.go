@@ -89,7 +89,7 @@ func (c *Client) StartClientLoop(signalChannel chan os.Signal, bet *Bet) {
 
 		_ = c.conn.Close()
 		log.Infof(
-			"action: apuesta_almacenada | result: success | dni: %s | numero: %s",
+			"action: apuesta_enviada | result: success | dni: %s | numero: %s",
 			bet.Document,
 			bet.Number,
 		)
