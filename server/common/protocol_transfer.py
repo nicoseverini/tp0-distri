@@ -1,5 +1,5 @@
 import socket
-from server.common.utils import Bet
+from common.utils import Bet
 
 class ProtocolError(Exception):
     pass
