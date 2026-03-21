@@ -4,7 +4,16 @@ from configparser import ConfigParser
 from common.server import Server
 import logging
 import os
+import sys
+import signal
 
+server = None
+
+def graceful_shutdown(signum=None, frame=None):
+    global server
+    if server is not None:
+        server.graceful_shutdown()
+    sys.exit(0)
 
 def initialize_config():
     """ Parse env variables or config file to find program config params
@@ -35,6 +44,8 @@ def initialize_config():
 
 
 def main():
+    global server
+
     config_params = initialize_config()
     logging_level = config_params["logging_level"]
     port = config_params["port"]
@@ -49,6 +60,9 @@ def main():
 
     # Initialize server and start server loop
     server = Server(port, listen_backlog)
+
+    signal.signal(signal.SIGTERM, graceful_shutdown)
+
     server.run()
 
 def initialize_log(logging_level):
