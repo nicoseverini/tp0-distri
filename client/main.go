@@ -115,6 +115,12 @@ func main() {
 	signalChannel := make(chan os.Signal, 1)
 	signal.Notify(signalChannel, syscall.SIGTERM)
 
+	bet, err := common.LoadBetFromEnv(clientConfig.ID)
+	if err != nil {
+		log.Criticalf("action: config | result: fail | client_id: %v | error: %v", clientConfig.ID, err)
+		return
+	}
+
 	client := common.NewClient(clientConfig)
-	client.StartClientLoop(signalChannel)
+	client.StartClientLoop(signalChannel, bet)
 }
