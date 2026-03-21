@@ -6,6 +6,7 @@ import (
 )
 
 type Bet struct {
+	Agency    string
 	FirstName string
 	LastName  string
 	Document  string
@@ -13,7 +14,7 @@ type Bet struct {
 	Number    string
 }
 
-func LoadBetFromEnv(id string) (*Bet, error) {
+func LoadBetFromEnv(agencyId string) (*Bet, error) {
 	firstName := os.Getenv("NOMBRE")
 	lastName := os.Getenv("APELLIDO")
 	document := os.Getenv("DOCUMENTO")
@@ -25,6 +26,7 @@ func LoadBetFromEnv(id string) (*Bet, error) {
 	}
 
 	bet := &Bet{
+		Agency:    agencyId,
 		FirstName: firstName,
 		LastName:  lastName,
 		Document:  document,

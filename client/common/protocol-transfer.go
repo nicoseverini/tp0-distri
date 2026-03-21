@@ -44,7 +44,8 @@ func readLine(conn net.Conn) (string, error) {
 
 func SendBet(conn net.Conn, bet *Bet) error {
 	msg := fmt.Sprintf(
-		"%s,%s,%s,%s,%s\n",
+		"%s,%s,%s,%s,%s,%s\n",
+		bet.Agency,
 		bet.FirstName,
 		bet.LastName,
 		bet.Document,

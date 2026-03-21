@@ -34,11 +34,11 @@ func InitConfig() (*viper.Viper, error) {
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
 	// Add env variables supported
-	v.BindEnv("id")
-	v.BindEnv("server", "address")
-	v.BindEnv("loop", "period")
-	v.BindEnv("loop", "amount")
-	v.BindEnv("log", "level")
+	_ = v.BindEnv("id")
+	_ = v.BindEnv("server", "address")
+	_ = v.BindEnv("loop", "period")
+	_ = v.BindEnv("loop", "amount")
+	_ = v.BindEnv("log", "level")
 
 	// Try to read configuration from config file. If config file
 	// does not exists then ReadInConfig will fail but configuration
