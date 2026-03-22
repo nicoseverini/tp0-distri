@@ -22,28 +22,31 @@ def recv_line(sock: socket.socket) -> str:
 
     return data.decode()
 
-def read_bet(sock: socket.socket) -> Bet:
+def read_batch(sock: socket.socket):
     line = recv_line(sock)
-    parts = line.strip().split(",")
+    bets = []
+    lines = line.strip().split("\n")
 
-    if len(parts) != 6:
-        raise ProtocolError("invalid bet format")
+    for l in lines:
+        parts = l.strip().split(",")
 
-    agency = parts[0]
-    first_name = parts[1]
-    last_name = parts[2]
-    document = parts[3]
-    birthdate = parts[4]
-    number = parts[5]
+        if len(parts) != 6:
+            raise ProtocolError("invalid bet format")
 
-    return Bet(
-        agency,
-        first_name,
-        last_name,
-        document,
-        birthdate,
-        number
-    )
+        bet = Bet(
+            parts[0],
+            parts[1],
+            parts[2],
+            parts[3],
+            parts[4],
+            parts[5]
+        )
+        bets.append(bet)
+
+    return bets
 
 def send_ack(sock: socket.socket):
     sock.sendall(b"OK\n")
+
+def send_error(sock: socket.socket):
+    sock.sendall(b"ERROR\n")

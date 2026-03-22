@@ -17,6 +17,16 @@ type Bet struct {
 	Birthdate string
 	Number    string
 }
+type BetSource interface {
+	Next() (*Bet, error)
+	Close() error
+}
+
+type CSVBetIterator struct {
+	file     *os.File
+	reader   *csv.Reader
+	agencyID string
+}
 
 func betFromCSVRow(agencyID string, row []string) (*Bet, error) {
 	if len(row) < 5 {
@@ -38,17 +48,6 @@ func betFromCSVRow(agencyID string, row []string) (*Bet, error) {
 		Birthdate: norm(row[3]),
 		Number:    norm(row[4]),
 	}, nil
-}
-
-type BetSource interface {
-	Next() (*Bet, error)
-	Close() error
-}
-
-type CSVBetIterator struct {
-	file     *os.File
-	reader   *csv.Reader
-	agencyID string
 }
 
 func NewCSVBetIterator(path string, agencyID string) (*CSVBetIterator, error) {

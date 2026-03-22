@@ -1,7 +1,7 @@
 import socket
 import logging
 from common.utils import store_bets
-from common.protocol_transfer import read_bet, send_ack, ProtocolError, ClientDisconnected
+from common.protocol_transfer import read_batch, send_ack, send_error, ProtocolError, ClientDisconnected
 
 class Server:
     def __init__(self, port, listen_backlog):
@@ -66,23 +66,26 @@ class Server:
         client socket will also be closed
         """
         try:
-            bet = read_bet(client_sock)
-            store_bets([bet])
+
+            bets = read_batch(client_sock)
+            store_bets(bets)
             logging.info(
-                "action: apuesta_almacenada | result: success | dni: %s | numero: %s",
-                bet.document,
-                bet.number
+                "action: apuesta_recibida | result: success | cantidad: %d",
+                len(bets)
             )
+
             send_ack(client_sock)
         except ClientDisconnected:
             logging.info(
                 "action: handle_client | result: success | event: client_disconnected"
             )
-        except (ProtocolError, OSError, ValueError) as e:
+        except Exception:
             logging.error(
-                "action: handle_client | result: fail | error: %s",
-                e
+                "action: apuesta_recibida | result: fail | cantidad: %d",
+                len(bets) if 'bets' in locals() else 0
             )
+
+            send_error(client_sock)
         finally:
             client_sock.close()
             logging.info(
