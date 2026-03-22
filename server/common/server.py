@@ -1,7 +1,8 @@
+import os
 import socket
 import logging
-from common.utils import store_bets
-from common.protocol_transfer import read_batch, send_ack, send_error, ProtocolError, ClientDisconnected
+from common.utils import store_bets, load_bets, has_won
+from common.protocol_transfer import read_command, send_ack, send_error, send_winners, read_batch, ClientDisconnected
 
 class Server:
     def __init__(self, port, listen_backlog):
@@ -13,6 +14,12 @@ class Server:
         self._server_socket.settimeout(1)
         self.running = True
         self.client_sockets = []
+
+        self.done_clients = set()
+        self.expected_clients = int(os.getenv("CLIENTS", "5"))
+        self.draw_done = False
+        self.winners_by_agency = {}
+        self.pending_get_winners = []
 
     def graceful_shutdown(self, signum=None, frame=None):
         self.running = False
@@ -59,23 +66,18 @@ class Server:
                 logging.error(f'action: accept_error | error: {e}')
 
     def __handle_client_connection(self, client_sock):
-        """
-        Read message from a specific client socket and closes the socket
-
-        If a problem arises in the communication with the client, the
-        client socket will also be closed
-        """
         bets = []
+
         try:
+            command, agency, reader = read_command(client_sock)
 
-            bets = read_batch(client_sock)
-            store_bets(bets)
-            logging.info(
-                "action: apuesta_recibida | result: success | cantidad: %d",
-                len(bets)
-            )
+            if command == "DONE":
+                self.__handle_done(client_sock, agency)
+            elif command == "GET_WINNERS":
+                self.__handle_get_winners(client_sock, agency)
+            elif command == "BATCH":
+                self.__handle_batch(client_sock, reader)
 
-            send_ack(client_sock)
         except ClientDisconnected:
             logging.info(
                 "action: handle_client | result: success | event: client_disconnected"
@@ -110,3 +112,64 @@ class Server:
         c, addr = self._server_socket.accept()
         logging.info(f'action: accept_connections | result: success | ip: {addr[0]}')
         return c
+
+    def __handle_done(self, client_sock, agency_id):
+        self.done_clients.add(agency_id)
+        if not self.draw_done and len(self.done_clients) >= self.expected_clients:
+            winners = {}
+
+            for bet in load_bets():
+                if has_won(bet):
+                    winners.setdefault(
+                        bet.agency,
+                        []
+                    ).append(bet.document)
+
+            self.winners_by_agency = winners
+            self.draw_done = True
+            logging.info(
+                "action: sorteo | result: success"
+            )
+            pending = self.pending_get_winners
+            self.pending_get_winners = []
+            for sock, agency in pending:
+                docs = self.winners_by_agency.get(
+                    agency,
+                    []
+                )
+                send_winners(sock, len(docs))
+                sock.close()
+
+    def __handle_get_winners(self, client_sock, agency):
+        if not self.draw_done:
+            self.pending_get_winners.append(
+                (client_sock, agency)
+            )
+            return
+        docs = self.winners_by_agency.get(
+            agency,
+            []
+        )
+        send_winners(
+            client_sock,
+            len(docs)
+        )
+
+    def __handle_batch(self, client_sock, reader):
+        bets = read_batch(reader)
+        store_bets(bets)
+
+        logging.info(
+            "action: apuesta_recibida | result: success | cantidad: %d",
+            len(bets)
+        )
+
+        send_ack(client_sock)
+
+    def __calculate_winners(self):
+        winners = []
+        for bet in load_bets():
+            if has_won(bet):
+                winners.append(bet.document)
+
+        return winners

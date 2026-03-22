@@ -56,10 +56,15 @@ func ReadAck(conn net.Conn) error {
 	return nil
 }
 
-func NotifyDone(conn net.Conn) error {
+func NotifyDone(conn net.Conn, agency string) error {
+	msg := fmt.Sprintf(
+		"DONE,%s\n",
+		agency,
+	)
+
 	return writeFull(
 		conn,
-		[]byte("DONE\n"),
+		[]byte(msg),
 	)
 }
 

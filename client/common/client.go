@@ -130,8 +130,9 @@ func (c *Client) StartClientLoop(signalChannel chan os.Signal, betSrc BetSource)
 	if err := c.createClientSocket(); err != nil {
 		return
 	}
+	agencyId := agencyNumber(c.config.ID)
 
-	if err := NotifyDone(c.conn); err != nil {
+	if err := NotifyDone(c.conn, agencyId); err != nil {
 		log.Errorf("action: send_done | result: fail | client_id: %v | error: %v", c.config.ID, err)
 		_ = c.conn.Close()
 		return
@@ -142,8 +143,7 @@ func (c *Client) StartClientLoop(signalChannel chan os.Signal, betSrc BetSource)
 		return
 	}
 
-	agency := agencyNumber(c.config.ID)
-	if err := SendQueryWinners(c.conn, agency); err != nil {
+	if err := SendQueryWinners(c.conn, agencyId); err != nil {
 		log.Errorf("action: query_winners | result: fail | client_id: %v | error: %v", c.config.ID, err)
 		_ = c.conn.Close()
 		return

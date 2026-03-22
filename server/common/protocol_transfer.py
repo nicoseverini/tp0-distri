@@ -32,8 +32,25 @@ class SocketReader:
         return line
 
 
-def read_batch(sock: socket.socket):
+def read_command(sock):
     reader = SocketReader(sock)
+    line = reader.read_line().strip()
+    parts = line.split(",")
+
+    if parts[0] in ("DONE", "GET_WINNERS"):
+        command = parts[0]
+        agency = int(parts[1]) if len(parts) > 1 else None
+    else:
+        command = "BATCH"
+        agency = None
+
+    return command, agency, reader
+
+def send_winners(sock: socket.socket, count: int):
+    response = f"WINS,{count}\n"
+    sock.sendall(response.encode())
+
+def read_batch(reader: SocketReader):
     bets = []
 
     while True:
