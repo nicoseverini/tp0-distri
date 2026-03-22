@@ -67,6 +67,7 @@ class Server:
 
     def __handle_client_connection(self, client_sock):
         bets = []
+        keep_open = False
 
         try:
             command, agency, reader = read_command(client_sock)
@@ -74,7 +75,7 @@ class Server:
             if command == "DONE":
                 self.__handle_done(client_sock, agency)
             elif command == "GET_WINNERS":
-                self.__handle_get_winners(client_sock, agency)
+                keep_open = self.__handle_get_winners(client_sock, agency)
             elif command == "BATCH":
                 self.__handle_batch(client_sock, reader)
 
@@ -90,14 +91,15 @@ class Server:
 
             send_error(client_sock)
         finally:
-            client_sock.close()
-            logging.info(
-                'action: close_fd | result: success | target: client_socket'
-            )
-            try:
-                self.client_sockets.remove(client_sock)
-            except ValueError:
-                pass
+            if not keep_open:
+                client_sock.close()
+                logging.info(
+                    'action: close_fd | result: success | target: client_socket'
+                )
+                try:
+                    self.client_sockets.remove(client_sock)
+                except ValueError:
+                    pass
 
     def __accept_new_connection(self):
         """
@@ -139,13 +141,18 @@ class Server:
                 )
                 send_winners(sock, len(docs))
                 sock.close()
+                logging.info('action: close_fd | result: success | target: client_socket')
+                try:
+                    self.client_sockets.remove(sock)
+                except ValueError:
+                    pass
 
     def __handle_get_winners(self, client_sock, agency):
         if not self.draw_done:
             self.pending_get_winners.append(
                 (client_sock, agency)
             )
-            return
+            return True
         docs = self.winners_by_agency.get(
             agency,
             []
@@ -154,6 +161,7 @@ class Server:
             client_sock,
             len(docs)
         )
+        return False
 
     def __handle_batch(self, client_sock, reader):
         bets = read_batch(reader)

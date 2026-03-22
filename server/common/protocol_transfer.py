@@ -43,6 +43,7 @@ def read_command(sock):
     else:
         command = "BATCH"
         agency = None
+        reader.buffer = (line + "\n").encode("utf-8") + reader.buffer
 
     return command, agency, reader
 

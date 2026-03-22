@@ -72,11 +72,7 @@ func (c *Client) StartClientLoop(signalChannel chan os.Signal, betSrc BetSource)
 
 		if err != nil {
 			if err == io.EOF {
-				log.Infof(
-					"action: loop_finished | result: success | client_id: %v",
-					c.config.ID,
-				)
-				return
+				break
 			}
 			log.Errorf(
 				"action: read_batch | result: fail | error: %v",
