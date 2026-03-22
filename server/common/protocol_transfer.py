@@ -6,42 +6,58 @@ class ProtocolError(Exception):
 
 
 class ClientDisconnected(Exception):
-    """Raised when a client closes the socket before sending any data."""
     pass
 
-def recv_line(sock: socket.socket) -> str:
-    data = b''
+class SocketReader:
+    def __init__(self, sock: socket.socket):
+        self.sock = sock
+        self.buffer = b''
+    
+    def read_line(self) -> str:
+        while b'\n' not in self.buffer:
+            try:
+                chunk = self.sock.recv(4096)
+                if not chunk:
+                    if not self.buffer:
+                        raise ClientDisconnected("client closed connection before sending data")
+                    raise ProtocolError("connection closed unexpectedly")
+                self.buffer += chunk
+            except socket.timeout:
+                if not self.buffer:
+                    raise ClientDisconnected("socket timeout before receiving data")
+                raise ProtocolError("socket timeout while reading")
 
-    while b'\n' not in data:
-        chunk = sock.recv(1024)
-        if not chunk:
-            if not data:
-                raise ClientDisconnected("client closed connection before sending data")
-            raise ProtocolError("incomplete bet format")
-        data += chunk
+        newline_pos = self.buffer.index(b'\n')
+        line = self.buffer[:newline_pos].decode('utf-8')
+        self.buffer = self.buffer[newline_pos + 1:]
+        return line
 
-    return data.decode()
 
 def read_batch(sock: socket.socket):
-    line = recv_line(sock)
+    reader = SocketReader(sock)
     bets = []
-    lines = line.strip().split("\n")
 
-    for l in lines:
-        parts = l.strip().split(",")
-
+    while True:
+        line = reader.read_line().strip()
+        if not line:
+            continue
+        if line == "END":
+            break
+        parts = line.split(",")
         if len(parts) != 6:
-            raise ProtocolError("invalid bet format")
-
-        bet = Bet(
-            parts[0],
-            parts[1],
-            parts[2],
-            parts[3],
-            parts[4],
-            parts[5]
-        )
-        bets.append(bet)
+            raise ProtocolError(f"invalid bet format: expected 6 fields, got {len(parts)}")
+        try:
+            bet = Bet(
+                parts[0].strip(),
+                parts[1].strip(),
+                parts[2].strip(),
+                parts[3].strip(),
+                parts[4].strip(),
+                parts[5].strip()
+            )
+            bets.append(bet)
+        except (ValueError, IndexError) as e:
+            raise ProtocolError(f"error parsing bet: {e}")
 
     return bets
 

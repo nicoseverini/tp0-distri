@@ -65,6 +65,7 @@ class Server:
         If a problem arises in the communication with the client, the
         client socket will also be closed
         """
+        bets = []
         try:
 
             bets = read_batch(client_sock)
@@ -82,7 +83,7 @@ class Server:
         except Exception:
             logging.error(
                 "action: apuesta_recibida | result: fail | cantidad: %d",
-                len(bets) if 'bets' in locals() else 0
+                len(bets)
             )
 
             send_error(client_sock)
