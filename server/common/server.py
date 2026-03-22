@@ -51,8 +51,9 @@ class Server:
                     self.client_sockets.append(client_sock)
 
                     thread = threading.Thread(
-                        self.__handle_client_connection(client_sock),
-                        args=(client_sock,)
+                        target=self.__handle_client_connection,
+                        args=(client_sock,),
+                        daemon=True
                     )
                     thread.start()
 
@@ -130,8 +131,8 @@ class Server:
                 self.draw_done_event.set()
 
     def __handle_get_winners(self, client_sock, agency):
-        if not self.draw_done_event.is_set():
-                self.draw_done_event.wait()
+
+        self.draw_done_event.wait()
 
         docs = self.winners_by_agency.get(
             agency,
