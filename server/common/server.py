@@ -1,12 +1,12 @@
 import os
 import socket
 import logging
+import threading
 from common.utils import store_bets, load_bets, has_won
 from common.protocol_transfer import read_command, send_ack, send_error, send_winners, read_batch, ClientDisconnected
 
 class Server:
     def __init__(self, port, listen_backlog):
-        # Initialize server socket
         self._server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._server_socket.bind(('', port))
         self._server_socket.listen(listen_backlog)
@@ -17,9 +17,10 @@ class Server:
 
         self.done_clients = set()
         self.expected_clients = int(os.getenv("CLIENTS", "5"))
-        self.draw_done = False
         self.winners_by_agency = {}
-        self.pending_get_winners = []
+
+        self.lock = threading.Lock()
+        self.draw_done_event = threading.Event()
 
     def graceful_shutdown(self, signum=None, frame=None):
         self.running = False
@@ -42,20 +43,18 @@ class Server:
 
 
     def run(self):
-        """
-        Dummy Server loop
-
-        Server that accept a new connections and establishes a
-        communication with a client. After client with communucation
-        finishes, servers starts to accept new connections again
-        """
         while self.running:
             try:
                 client_sock = self.__accept_new_connection()
 
                 if client_sock:
                     self.client_sockets.append(client_sock)
-                    self.__handle_client_connection(client_sock)
+
+                    thread = threading.Thread(
+                        self.__handle_client_connection(client_sock),
+                        args=(client_sock,)
+                    )
+                    thread.start()
 
             except socket.timeout:
                 continue
@@ -102,57 +101,38 @@ class Server:
                     pass
 
     def __accept_new_connection(self):
-        """
-        Accept new connections
-
-        Function blocks until a connection to a client is made.
-        Then connection created is printed and returned
-        """
-
-        # Connection arrived
         logging.info('action: accept_connections | result: in_progress')
         c, addr = self._server_socket.accept()
         logging.info(f'action: accept_connections | result: success | ip: {addr[0]}')
         return c
 
     def __handle_done(self, client_sock, agency_id):
-        self.done_clients.add(agency_id)
-        if not self.draw_done and len(self.done_clients) >= self.expected_clients:
-            winners = {}
+        with self.lock:
+            self.done_clients.add(agency_id)
+            if (
+                not self.draw_done_event.is_set()
+                and len(self.done_clients) >= self.expected_clients
+            ):
+                winners = {}
 
-            for bet in load_bets():
-                if has_won(bet):
-                    winners.setdefault(
-                        bet.agency,
-                        []
-                    ).append(bet.document)
+                for bet in load_bets():
+                    if has_won(bet):
+                        winners.setdefault(
+                            bet.agency,
+                            []
+                        ).append(bet.document)
 
-            self.winners_by_agency = winners
-            self.draw_done = True
-            logging.info(
-                "action: sorteo | result: success"
-            )
-            pending = self.pending_get_winners
-            self.pending_get_winners = []
-            for sock, agency in pending:
-                docs = self.winners_by_agency.get(
-                    agency,
-                    []
+                self.winners_by_agency = winners
+                logging.info(
+                    "action: sorteo | result: success"
                 )
-                send_winners(sock, len(docs))
-                sock.close()
-                logging.info('action: close_fd | result: success | target: client_socket')
-                try:
-                    self.client_sockets.remove(sock)
-                except ValueError:
-                    pass
+
+                self.draw_done_event.set()
 
     def __handle_get_winners(self, client_sock, agency):
-        if not self.draw_done:
-            self.pending_get_winners.append(
-                (client_sock, agency)
-            )
-            return True
+        if not self.draw_done_event.is_set():
+                self.draw_done_event.wait()
+
         docs = self.winners_by_agency.get(
             agency,
             []
@@ -165,7 +145,8 @@ class Server:
 
     def __handle_batch(self, client_sock, reader):
         bets = read_batch(reader)
-        store_bets(bets)
+        with self.lock:
+            store_bets(bets)
 
         logging.info(
             "action: apuesta_recibida | result: success | cantidad: %d",
