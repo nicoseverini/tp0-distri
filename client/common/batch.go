@@ -7,7 +7,7 @@ import (
 )
 
 func NextBatch(src BetSource, maxAmount int) ([]*Bet, error) {
-	var batch []*Bet
+	batch := make([]*Bet, 0, maxAmount)
 
 	for len(batch) < maxAmount {
 		bet, err := src.Next()
@@ -40,5 +40,9 @@ func SendBatch(conn net.Conn, bets []*Bet) error {
 			return err
 		}
 	}
+	if err := writeFull(conn, []byte("END\n")); err != nil {
+		return err
+	}
+
 	return nil
 }
