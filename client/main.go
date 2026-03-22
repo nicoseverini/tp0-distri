@@ -39,6 +39,7 @@ func InitConfig() (*viper.Viper, error) {
 	_ = v.BindEnv("loop", "period")
 	_ = v.BindEnv("loop", "amount")
 	_ = v.BindEnv("log", "level")
+	_ = v.BindEnv("batch", "maxAmount")
 
 	// Try to read configuration from config file. If config file
 	// does not exists then ReadInConfig will fail but configuration
@@ -106,21 +107,22 @@ func main() {
 	PrintConfig(v)
 
 	clientConfig := common.ClientConfig{
-		ServerAddress: v.GetString("server.address"),
-		ID:            v.GetString("id"),
-		LoopAmount:    v.GetInt("loop.amount"),
-		LoopPeriod:    v.GetDuration("loop.period"),
+		ServerAddress:  v.GetString("server.address"),
+		ID:             v.GetString("id"),
+		LoopAmount:     v.GetInt("loop.amount"),
+		LoopPeriod:     v.GetDuration("loop.period"),
+		BatchMaxAmount: v.GetInt("batch.maxAmount"),
 	}
 
 	signalChannel := make(chan os.Signal, 1)
 	signal.Notify(signalChannel, syscall.SIGTERM)
 
-	bet, err := common.LoadBetFromEnv(clientConfig.ID)
+	betIterator, err := common.NewCSVBetIterator("agency.csv", clientConfig.ID)
 	if err != nil {
 		log.Criticalf("action: config | result: fail | client_id: %v | error: %v", clientConfig.ID, err)
 		return
 	}
 
 	client := common.NewClient(clientConfig)
-	client.StartClientLoop(signalChannel, bet)
+	client.StartClientLoop(signalChannel, betIterator)
 }

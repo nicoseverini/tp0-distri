@@ -1,6 +1,7 @@
 package common
 
 import (
+	"io"
 	"net"
 	"os"
 	"time"
@@ -12,10 +13,11 @@ var log = logging.MustGetLogger("log")
 
 // ClientConfig Configuration used by the client
 type ClientConfig struct {
-	ID            string
-	ServerAddress string
-	LoopAmount    int
-	LoopPeriod    time.Duration
+	ID             string
+	ServerAddress  string
+	LoopAmount     int
+	LoopPeriod     time.Duration
+	BatchMaxAmount int
 }
 
 // Client Entity that encapsulates how
@@ -51,9 +53,10 @@ func (c *Client) createClientSocket() error {
 }
 
 // StartClientLoop Send messages to the client until some time threshold is met
-func (c *Client) StartClientLoop(signalChannel chan os.Signal, bet *Bet) {
+func (c *Client) StartClientLoop(signalChannel chan os.Signal, betSrc BetSource) {
 	// There is an autoincremental msgID to identify every message sent
 	// Messages if the message amount threshold has not been surpassed
+	defer betSrc.Close()
 	for msgID := 1; msgID <= c.config.LoopAmount; msgID++ {
 		select {
 		case <-signalChannel:
@@ -62,37 +65,54 @@ func (c *Client) StartClientLoop(signalChannel chan os.Signal, bet *Bet) {
 		default:
 		}
 
-		// Create the connection the server in every loop iteration. Send an
+		batch, err := NextBatch(
+			betSrc,
+			c.config.BatchMaxAmount,
+		)
+
+		if err != nil {
+			if err == io.EOF {
+				log.Infof(
+					"action: loop_finished | result: success | client_id: %v",
+					c.config.ID,
+				)
+				return
+			}
+			log.Errorf(
+				"action: read_batch | result: fail | error: %v",
+				err,
+			)
+			return
+		}
+
 		if err := c.createClientSocket(); err != nil {
 			return
 		}
 
-		if err := SendBet(c.conn, bet); err != nil {
-			_ = c.conn.Close()
+		if err := SendBatch(c.conn, batch); err != nil {
 			log.Errorf(
-				"action: send_bet | result: fail | client_id: %v | error: %v",
-				c.config.ID,
+				"action: send_batch | result: fail | error: %v",
 				err,
 			)
+			_ = c.conn.Close()
 			return
 		}
 
 		if err := ReadAck(c.conn); err != nil {
-			_ = c.conn.Close()
 			log.Errorf(
-				"action: receive_ack | result: fail | client_id: %v | error: %v",
-				c.config.ID,
+				"action: read_ack | result: fail | error: %v",
 				err,
 			)
+			_ = c.conn.Close()
 			return
 		}
 
-		_ = c.conn.Close()
 		log.Infof(
-			"action: apuesta_enviada | result: success | dni: %s | numero: %s",
-			bet.Document,
-			bet.Number,
+			"action: apuesta_enviada | result: success | cantidad: %d",
+			len(batch),
 		)
+
+		_ = c.conn.Close()
 
 		select {
 		case <-signalChannel:

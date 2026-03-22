@@ -42,19 +42,6 @@ func readLine(conn net.Conn) (string, error) {
 	return string(buffer), nil
 }
 
-func SendBet(conn net.Conn, bet *Bet) error {
-	msg := fmt.Sprintf(
-		"%s,%s,%s,%s,%s,%s\n",
-		bet.Agency,
-		bet.FirstName,
-		bet.LastName,
-		bet.Document,
-		bet.Birthdate,
-		bet.Number,
-	)
-	return writeFull(conn, []byte(msg))
-}
-
 func ReadAck(conn net.Conn) error {
 	line, err := readLine(conn)
 	if err != nil {
