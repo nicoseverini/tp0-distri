@@ -4,7 +4,6 @@ from common.utils import Bet
 class ProtocolError(Exception):
     pass
 
-
 class ClientDisconnected(Exception):
     pass
 
